@@ -1,0 +1,7 @@
+__pycache__
+testdir/
+.vscode
+build/
+cmtkgen.egg-info/
+dist/
+cmpresets/
