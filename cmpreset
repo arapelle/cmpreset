@@ -9,12 +9,61 @@ import git
 
 CMPRESET_VERSION:str = "0.1"
 
+CMAKE_USER_PRESET_TEXT:str = """{
+  "version": 2,
+  "cmakeMinimumRequired": { "major": 3, "minor": 20, "patch": 0 },
+  "configurePresets": 
+  [
+    {
+      "name": "default",
+      "displayName": "Default Config",
+      "description": "Default build using Ninja generator",
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build/default",
+      "cacheVariables": 
+      {
+        "FIRST_CACHE_VARIABLE": { "type": "BOOL", "value": "OFF" },
+        "SECOND_CACHE_VARIABLE": "ON"
+      },
+      "environment": {
+        "MY_ENVIRONMENT_VARIABLE": "Test",
+        "PATH": "$env{HOME}/ninja/bin:$penv{PATH}"
+      }
+    },
+    {
+      "name": "ninja-multi",
+      "inherits": "default",
+      "displayName": "Ninja Multi-Config",
+      "description": "Default build using Ninja Multi-Config generator",
+      "generator": "Ninja Multi-Config"
+    }
+  ],
+
+  "buildPresets": 
+  [
+    {
+      "name": "default",
+      "configurePreset": "default"
+    }
+  ],
+
+  "testPresets": 
+  [
+    {
+      "name": "default",
+      "configurePreset": "default",
+      "output": {"outputOnFailure": true},
+      "execution": {"noTestsAction": "error", "stopOnFailure": true}
+    }
+  ]
+}
+"""
+
 # argparser.add_argument('--cmake', metavar='cmake-path', type=str, default="cmake", help='Path or alias to CMake')
 
 class CMpreset:
     def __init__(self):
         self.cmpresets = Path(os.path.realpath(__file__)).parent / "cmpresets"
-        # print(self.cmpresets)
         pass
 
     def configure(self, args):
@@ -39,16 +88,18 @@ class CMpreset:
         argparser.add_argument('project_name', nargs='?', default=Path(os.getcwd()).stem, type=str, help='Project name')
         argparser.add_argument('-c', '--create', action='store_true', help='Create user presets in repository before linking.')
         pargs = argparser.parse_args(args)
-        user_presets_file = self.cmpresets / pargs.project_name / "CMakeUserPresets.json"
+        user_presets_dir = self.cmpresets / pargs.project_name
+        user_presets_file = user_presets_dir / "CMakeUserPresets.json"
 
         if pargs.create:
             if not user_presets_file.exists():
-                # TODO create file
-                pass
+                os.makedirs(user_presets_dir)
+                with open(user_presets_file, "w", encoding='utf8') as user_presets_fstream:
+                    user_presets_fstream.write(CMAKE_USER_PRESET_TEXT)
             else:
                 print(f"File '{user_presets_file}' already exists.")
         if user_presets_file.exists():
-            print(f"Link '{user_presets_file}'")
+            print(f"Create link '{user_presets_file}'")
             os.symlink(user_presets_file, "CMakeUserPresets.json")
         else:
             print(f"File '{user_presets_file}' does not exist.")
@@ -60,7 +111,7 @@ class CMpreset:
         pargs = argparser.parse_args(args)
         user_presets_file = self.cmpresets / pargs.project_name / "CMakeUserPresets.json"
         if user_presets_file.exists():
-            print(f"Copy '{user_presets_file}'")
+            print(f"Copy '{user_presets_file}' to 'CMakeUserPresets.json'")
             shutil.copy(user_presets_file, "CMakeUserPresets.json")
         else:
             print(f"File '{user_presets_file}' does not exist.")
@@ -73,7 +124,7 @@ class CMpreset:
         user_presets_dir = self.cmpresets / pargs.project_name
         user_presets_file = user_presets_dir / "CMakeUserPresets.json"
         if Path("CMakeUserPresets.json").exists():
-            print(f"Copy '{user_presets_file}'")
+            print(f"Copy 'CMakeUserPresets.json' to '{user_presets_file}'")
             os.makedirs(user_presets_dir)
             shutil.copy("CMakeUserPresets.json", user_presets_file)
         else:
@@ -81,16 +132,20 @@ class CMpreset:
         pass
 
     def push(self, args):
-        # TODO
         if (self.cmpresets / ".git").is_dir():
             print('git push')
-            pass
+            repo = git.Repo(f"{self.cmpresets}")
+            repo.git.add(all=True)
+            repo.index.commit("update")
+            origin = repo.remote(name='origin')
+            origin.push()
         pass
 
     def pull(self, args):
-        # TODO
         if (self.cmpresets / ".git").is_dir():
             print('git pull')
+            repo = git.Repo(f"{self.cmpresets}")
+            repo.git.pull('origin')
             pass
         pass
 
